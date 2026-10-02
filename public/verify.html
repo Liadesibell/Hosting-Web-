@@ -1,0 +1,27 @@
+<!doctype html>
+<!-- EMAIL VERIFICATION PAGE: confirmation is explicit; scanners do not activate accounts. -->
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#17241e">
+  <title>E-posta Doğrulama | KökHost</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="panel.css">
+  <script src="verify.js" defer></script>
+</head>
+<body>
+  <main class="verification-page">
+    <section class="verification-panel">
+      <a class="brand" href="/"><span class="brand-mark">k</span><span>kök<span class="brand-light">host</span></span></a>
+      <p class="eyebrow">HESAP GÜVENLİĞİ</p>
+      <h1>E-posta adresini doğrula</h1>
+      <p id="verification-message">Hesabını etkinleştirmek için aşağıdaki düğmeye bas.</p>
+      <button class="dark-button" id="verify-email-button" type="button">E-posta adresimi doğrula</button>
+      <p class="form-error" id="verification-error" aria-live="polite"></p>
+    </section>
+  </main>
+</body>
+</html>

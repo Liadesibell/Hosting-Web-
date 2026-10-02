@@ -1,0 +1,114 @@
+KOKHOST PROJESI - ENTEGRASYON VE API BILGI DOSYASI
+===================================================
+
+Bu belge projede kullanilan yerel API rotalarini, dis servisleri ve entegrasyonlarin amacini aciklar. Gizli anahtar, parola, IBAN veya gercek hesap degerleri bu dosyaya yazilmaz. Bunlar .env dosyasinda tutulmali ve kimseyle paylasilmamalidir.
+
+1. CALISMA ORTAMI VE VERITABANI
+-------------------------------
+- Node.js ve Express: Uygulamanin sunucu ve REST API katmani. Varsayilan adres http://localhost:3000; statik public/ sayfalari da sunar.
+- SQLite (node:sqlite): Kullanici, oturum, bekleyen kayit, siparis, odeme, destek talebi ve mesaj verileri data/kokhost.sqlite dosyasinda tutulur.
+- SQLite WAL: Eszamanli okumalar/yazmalar icin kokhost.sqlite-wal ve kokhost.sqlite-shm dosyalarini otomatik kullanir. Bunlar entegrasyon degildir; veritabani dosyalaridir.
+- Helmet: HTTP guvenlik basliklarini ayarlar. Icerik Guvenlik Politikasi bu projede kapatilmis durumdadir.
+- Kimlik dogrulama harici bir OAuth/API servisi kullanmaz. Sifreler Node crypto.scrypt ile hashlenir; oturum belirtecleri veritabaninda hashli saklanir ve kokhost_session cerezinde tasinir.
+
+2. E-POSTA ENTEGRASYONLARI
+--------------------------
+SMTP / Nodemailer
+- Hangi sistem: .env ile belirtilen SMTP posta sunucusu (or. Gmail SMTP veya kullanilan hosting e-posta sunucusu).
+- Ne yapar: Kayit dogrulama, IBAN bilgisi, odeme bildirimi, destek talebi/yaniti ve hizmet onay e-postalarini gonderir.
+- Ilgili degiskenler: SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS, MAIL_FROM, ADMIN_EMAIL, SUPPORT_EMAIL.
+- Kayit dogrulama e-postasi HTML ve duz metin alternatifleriyle gonderilir. PUBLIC_URL dogrulama baglantisinin kok adresidir ve herkese acik HTTPS adresi olmalidir. localhost adresi Gmail'de spam riski yaratir ve diger cihazlardan erisilemez.
+- SMTP iletinin kabul edilmesi gelen kutusuna teslim garantisi vermez. Gonderen domain icin SPF, DKIM ve DMARC ayarlari posta saglayicisinda yapilmalidir.
+
+IMAP / ImapFlow / Mailparser
+- Hangi sistem: .env'de IMAP_HOST, IMAP_USER ve IMAP_PASS ile belirtilen gelen posta kutusu. Gmail icin sunucu genellikle imap.gmail.com, port 993 ve TLS'dir.
+- Ne yapar: Bekleyen IBAN odemeleriyle iliskili e-posta konularini Gelen Kutusu ve Gmail'in Sent klasorunde arar. ADMIN_EMAIL veya SUPPORT_EMAIL adresinden gelen, govdesinde tek basina ONAYLANDI bulunan yanit odemeyi onaylar, siparisi etkinlestirir ve kullaniciya e-posta yollar.
+- Denetim varsayilan olarak 5 saniyede bir yapilir; IMAP_POLL_INTERVAL_MS ile degistirilebilir. Yalnizca review durumunda odeme varken posta kutusuna baglanir ve yalnizca bekleyen siparis kodlarini arar.
+- Ilgili degiskenler: IMAP_HOST, IMAP_PORT, IMAP_SECURE, IMAP_USER, IMAP_PASS, IMAP_MAILBOX, IMAP_POLL_INTERVAL_MS.
+- Uygulama sifresi normal hesap sifresinin yerine kullanilmalidir. E-posta yanitinin gondereni ADMIN_EMAIL veya SUPPORT_EMAIL ile uyusmalidir.
+
+E-posta acilma izleme
+- /api/mail/open/:token.gif rotasi destek e-postalarindaki izleme goruntusunu sunar; iletinin acilma zamanini kaydeder. E-posta istemcileri goruntuleri engelleyebildiginden bu kesin okundu kaniti degildir.
+
+3. ODEME ENTEGRASYONLARI
+------------------------
+IBAN / EFT
+- Hangi sistem: Sirket banka hesabi; harici HTTP API kullanmaz.
+- Ilgili degiskenler: BANK_NAME, BANK_ACCOUNT_NAME, COMPANY_IBAN.
+- Musteri havale yaptigini panelden bildirir. Bildirim SMTP ile yonetici ve destek adreslerine gider. Odeme, yonetici veya izinli e-posta yaniti ONAYLANDI verene kadar review durumunda kalir.
+
+
+
+4. ALAN ADI SORGULAMA
+---------------------
+IANA RDAP bootstrap
+- Hangi sistem: IANA'nin RDAP DNS servis listesi.
+- Adres: https://data.iana.org/rdap/dns.json
+- Ne yapar: Uzantiya gore yetkili RDAP sunucusunu bulur. Sonuc bellek onbeginde 24 saat tutulur.
+
+RDAP alan adi sorgusu
+- Hangi sistem: IANA listesinde bulunan ilgili alan adi kayit kurulusunun RDAP servisi; uzanti listede yoksa https://rdap.org/domain/{alan-adi} yedegi kullanilir.
+- Ne yapar: Alan adinin kayitli olup olmadigini bilgilendirme amacli sorgular. Alan adi satin alma/kayit API'si degildir; uygunluk ve fiyat kayit kurulusunda dogrulanmalidir.
+- Yerel rotalar: GET /api/domains/tlds ve GET /api/domains/check?name=ornek.com.
+
+5. YEREL HAZIR YANIT ASISTANI
+-----------------------------
+- Hangi sistem: public/panel.js icinde bulunan yerel Turkce bilgi katalogu ve soru eslestiricisi.
+- Katalog 50 ana konudan 20 soru bicimi tureterek 1.000 soru-cevap eslesmesi olusturur.
+- Harici yapay zeka servisi veya API anahtari kullanmaz. Eslesme bulunamazsa kullanici destek talebine yonlendirilir.
+
+6. VDS SAGLAYICI ENTEGRASYONU
+-----------------------------
+- VDS #7 icin donanim ve baglanti degerleri VDS_7_* .env degiskenlerinden okunur; diger siparislerde katalogdaki CPU/RAM/disk ozellikleri kullanilir.
+- IP, kullanici adi, parola, uptime ve guc durumu hizmete ozel ayarlardir. Ayni degerler diger VDS'lere otomatik kopyalanmaz.
+- Bu projede VDS saglayicisinin provisioning, console veya power-control API'si bagli degildir. Guclu kapat/baslat dugmesi bu nedenle devre disidir. Yeniden kurulum ve OS degisikligi dugmeleri destek talebi olusturur; sunucuda otomatik kurulum baslatmaz.
+- Gercek VDS guc/kurulum islemleri icin saglayicinin API'si, dokumantasyonu ve siparis/instance eslemesi gerekir.
+
+7. YEREL REST API ROTLARI
+-------------------------
+Genel ve oturum
+- GET /api/plans: Basit plan listesini doner.
+- GET /api/auth/me: Gecerli oturumdaki kullaniciyi doner; oturum yoksa user null olur.
+- POST /api/auth/register: Kayit istegi acar ve e-posta dogrulamasi gonderir. SMTP gerektirir.
+- POST /api/auth/verify: Dogrulama tokenini tuketir, hesabi olusturur ve oturum acar.
+- POST /api/auth/login: E-posta/sifre girisini dogrular ve oturum acar.
+- POST /api/auth/logout: Oturumu siler ve cerez temizler.
+- GET /api/orders: Oturum sahibinin siparislerini listeler.
+- POST /api/orders: Basit plan listesinden siparis olusturur.
+
+Musteri paneli
+- GET /api/catalog: Paket katalogu.
+- GET /api/panel/summary: Siparis, destek ve bekleyen odeme ozeti.
+- GET /api/payments: Oturum sahibinin odeme gecmisi.
+- GET /api/services: Onayli/odenmis hizmetleri listeler.
+- GET /api/services/:serviceId: Oturum sahibinin hizmet detaylarini doner.
+- GET /api/domains/tlds: RDAP uzanti listesini getirir.
+- GET /api/domains/check?name=...: Alan adi RDAP durum sorgusu.
+- POST /api/payments/checkout: Tek paket icin IBAN / EFT odemesi olusturur.
+- POST /api/payments/cart/quote: Sepet tutarini sunucuda yeniden hesaplar.
+- POST /api/payments/cart: Sepet icin IBAN / EFT odemesi olusturur.
+- POST /api/payments/:paymentId/confirm-transfer: Musterinin havale bildirimini yonetici/destek adreslerine gonderir.
+- POST /api/support/tickets: Destek talebi acar ve destek e-postasina bildirir.
+- GET /api/support/tickets: Oturum sahibinin destek talepleri.
+- GET /api/support/tickets/:publicId: Talep ve mesajlarini getirir.
+- POST /api/support/tickets/:publicId/messages: Talebe musteri veya yetkili yaniti ekler.
+
+Yonetici API'leri
+- GET /api/admin/tickets: Yetkili yonetici icin tum destek talepleri.
+- GET /api/admin/payments: Onay bekleyen IBAN transferleri.
+- POST /api/admin/payments/:paymentId/confirm: Yoneticinin banka transferini elle onaylamasi.
+
+GET /api/plans, GET /api/auth/me, kayit/dogrulama/giris/cikis rotalari ve e-posta acilma pikseli oturumsuz cagrilabilir. Diger musteri rotalari kokhost_session oturumu ister; /api/admin rotalari ayrica ADMIN_EMAIL ile belirtilen yonetici hesabini gerektirir.
+
+Yerel arayuz/API baglantisi: public/panel.js ve public/app.js, tarayici isteklerini oturum cerezleriyle gonderir. Live Server 5500 portunda acildiginda API istekleri 3000 portuna yonlendirilir; server.js yalnizca localhost:5500 gelistirme origin'lerine CORS izni verir.
+
+8. TEMEL YAPILANDIRMA DEGISKENLERI
+----------------------------------
+- Sunucu: PORT, NODE_ENV, PUBLIC_URL, TRUST_PROXY.
+- Yonetim: ADMIN_EMAIL, SUPPORT_EMAIL.
+- SMTP: MAIL_FROM, SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS.
+- IMAP: IMAP_HOST, IMAP_PORT, IMAP_SECURE, IMAP_USER, IMAP_PASS, IMAP_MAILBOX, IMAP_POLL_INTERVAL_MS.
+- Banka: BANK_NAME, BANK_ACCOUNT_NAME, COMPANY_IBAN.
+- VDS #7: VDS_7_CPU, VDS_7_CPU_SPEED, VDS_7_RAM, VDS_7_DISK, VDS_7_LOCATION, VDS_7_OS, VDS_7_IP, VDS_7_USERNAME, VDS_7_PASSWORD, VDS_7_UPTIME_SECONDS, VDS_7_UPTIME_ANCHOR, VDS_7_POWER_STATUS.
+
+Degisken isimleri disinda gizli degerler bu belgede bulunmaz. Canli kullanimdan once HTTPS adresini, e-posta DNS kimlik dogrulamasini ve gercek hizmet saglayici entegrasyonlarini ayri ayri dogrulayin.
